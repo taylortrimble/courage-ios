@@ -37,6 +37,8 @@ const TNTCourageMessageHeader TNTCourageSubscribeRequestMessageHeader = 0x10;
 const TNTCourageMessageHeader TNTCourageSubscribeOKResponseMessageHeader = 0x11;
 const TNTCourageMessageHeader TNTCourageSubscribeStreamingResponseMessageHeader = 0x13;
 
+const NSTimeInterval TNTCourageInitialReconnectInterval = 0.1;  // 100ms.
+const NSTimeInterval TNTCourageMaxReconnectInterval = 300;      // 5 min.
 const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 #pragma mark - Private Members and Methods
@@ -57,13 +59,18 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 @property (strong, nonatomic) NSUUID *currentChannelId;
 @property (assign, nonatomic) UInt8 remainingEvents;
 
+@property (assign, nonatomic) NSTimeInterval reconnectInterval;
+
 // Socket delegate methods.
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port;
+- (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)error;
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag;
 
 // Utility methods.
 - (void)connect;
 - (void)sendSubscribeRequestForChannel:(NSUUID *)channelId options:(TNTCourageSubscribeOptions)options;
+- (NSTimeInterval)nextReconnectInterval;
+- (void)resetReconnectInterval;
 
 @end
 
@@ -95,6 +102,11 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         _socket = nil;
         
         _subscribers = [[NSMutableDictionary alloc] init];
+        
+        _currentChannelId = nil;
+        _remainingEvents = 0;
+        
+        _reconnectInterval = TNTCourageInitialReconnectInterval;
     }
     
     return self;
@@ -162,6 +174,15 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     
     // Start reading incoming messages.
     [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagMessageHeader];
+    
+    // Reset the reconnect interval.
+    [self resetReconnectInterval];
+}
+
+- (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)error
+{
+    // If we ever lose the connection, try to restart it.
+    [NSTimer scheduledTimerWithTimeInterval:[self nextReconnectInterval] target:self selector:@selector(connect) userInfo:nil repeats:NO];
 }
 
 // socket:didReadData: is a funky method. We want to read continuously from the stream, but we can't do blocking reads.
@@ -281,6 +302,19 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     
     // Send to server.
     [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketWriteTagSubscribeMessageRequest];
+}
+
+- (NSTimeInterval)nextReconnectInterval
+{
+    NSTimeInterval nextReconnectInterval = self.reconnectInterval;
+    self.reconnectInterval = MIN(self.reconnectInterval * 2, TNTCourageMaxReconnectInterval);
+    
+    return nextReconnectInterval;
+}
+
+- (void)resetReconnectInterval
+{
+    self.reconnectInterval = TNTCourageInitialReconnectInterval;
 }
 
 @end
