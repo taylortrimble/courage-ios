@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9D94572EC35B4412B3CD5D29 /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5EDAFC720F4C4C1D9E52AB7D /* libPods.a */; };
+		A7223B3819BD22AC00204566 /* TNTCourageErrorCodes.m in Sources */ = {isa = PBXBuildFile; fileRef = A7223B3719BD22AC00204566 /* TNTCourageErrorCodes.m */; };
+		A7223B3919BD264B00204566 /* TNTPayloadWriter.m in Sources */ = {isa = PBXBuildFile; fileRef = A7B0E3B319BB9C1E0074C33A /* TNTPayloadWriter.m */; };
+		A7223B3A19BD26BC00204566 /* Courage.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A7223B3119BCDBD600204566 /* Courage.h */; };
 		A7B0E38A19B6DBC20074C33A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A7B0E38919B6DBC20074C33A /* Foundation.framework */; };
-		A7B0E38F19B6DBC20074C33A /* Courage.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A7B0E38E19B6DBC20074C33A /* Courage.h */; };
-		A7B0E39119B6DBC20074C33A /* Courage.m in Sources */ = {isa = PBXBuildFile; fileRef = A7B0E39019B6DBC20074C33A /* Courage.m */; };
+		A7B0E39119B6DBC20074C33A /* TNTCourage.m in Sources */ = {isa = PBXBuildFile; fileRef = A7B0E39019B6DBC20074C33A /* TNTCourage.m */; };
 		A7B0E39819B6DBC20074C33A /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A7B0E39719B6DBC20074C33A /* XCTest.framework */; };
 		A7B0E39919B6DBC20074C33A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A7B0E38919B6DBC20074C33A /* Foundation.framework */; };
-		A7B0E39B19B6DBC20074C33A /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A7B0E39A19B6DBC20074C33A /* UIKit.framework */; };
 		A7B0E39E19B6DBC20074C33A /* libCourage.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A7B0E38619B6DBC20074C33A /* libCourage.a */; };
 		A7B0E3A419B6DBC20074C33A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A7B0E3A219B6DBC20074C33A /* InfoPlist.strings */; };
 		A7B0E3A619B6DBC20074C33A /* CourageTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A7B0E3A519B6DBC20074C33A /* CourageTests.m */; };
@@ -35,24 +37,30 @@
 			dstPath = "include/$(PRODUCT_NAME)";
 			dstSubfolderSpec = 16;
 			files = (
-				A7B0E38F19B6DBC20074C33A /* Courage.h in CopyFiles */,
+				A7223B3A19BD26BC00204566 /* Courage.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		54DE4335F123435598EB80A6 /* Pods.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.xcconfig; path = Pods/Pods.xcconfig; sourceTree = "<group>"; };
+		5EDAFC720F4C4C1D9E52AB7D /* libPods.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPods.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7223B3119BCDBD600204566 /* Courage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Courage.h; sourceTree = "<group>"; };
+		A7223B3619BD22AC00204566 /* TNTCourageErrorCodes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TNTCourageErrorCodes.h; sourceTree = "<group>"; };
+		A7223B3719BD22AC00204566 /* TNTCourageErrorCodes.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TNTCourageErrorCodes.m; sourceTree = "<group>"; };
 		A7B0E38619B6DBC20074C33A /* libCourage.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCourage.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A7B0E38919B6DBC20074C33A /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		A7B0E38D19B6DBC20074C33A /* Courage-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Courage-Prefix.pch"; sourceTree = "<group>"; };
-		A7B0E38E19B6DBC20074C33A /* Courage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Courage.h; sourceTree = "<group>"; };
-		A7B0E39019B6DBC20074C33A /* Courage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Courage.m; sourceTree = "<group>"; };
+		A7B0E38E19B6DBC20074C33A /* TNTCourage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TNTCourage.h; sourceTree = "<group>"; };
+		A7B0E39019B6DBC20074C33A /* TNTCourage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TNTCourage.m; sourceTree = "<group>"; };
 		A7B0E39619B6DBC20074C33A /* CourageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CourageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A7B0E39719B6DBC20074C33A /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
-		A7B0E39A19B6DBC20074C33A /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		A7B0E3A119B6DBC20074C33A /* CourageTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "CourageTests-Info.plist"; sourceTree = "<group>"; };
 		A7B0E3A319B6DBC20074C33A /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A7B0E3A519B6DBC20074C33A /* CourageTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CourageTests.m; sourceTree = "<group>"; };
+		A7B0E3B319BB9C1E0074C33A /* TNTPayloadWriter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TNTPayloadWriter.m; sourceTree = "<group>"; };
+		A7B0E3B419BB9C1E0074C33A /* TNTPayloadWriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TNTPayloadWriter.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +69,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A7B0E38A19B6DBC20074C33A /* Foundation.framework in Frameworks */,
+				9D94572EC35B4412B3CD5D29 /* libPods.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,7 +79,6 @@
 			files = (
 				A7B0E39E19B6DBC20074C33A /* libCourage.a in Frameworks */,
 				A7B0E39819B6DBC20074C33A /* XCTest.framework in Frameworks */,
-				A7B0E39B19B6DBC20074C33A /* UIKit.framework in Frameworks */,
 				A7B0E39919B6DBC20074C33A /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -78,6 +86,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A7223B3219BD1F2500204566 /* Internal */ = {
+			isa = PBXGroup;
+			children = (
+				A7B0E3B419BB9C1E0074C33A /* TNTPayloadWriter.h */,
+				A7B0E3B319BB9C1E0074C33A /* TNTPayloadWriter.m */,
+			);
+			path = Internal;
+			sourceTree = "<group>";
+		};
 		A7B0E37D19B6DBC20074C33A = {
 			isa = PBXGroup;
 			children = (
@@ -85,6 +102,7 @@
 				A7B0E39F19B6DBC20074C33A /* CourageTests */,
 				A7B0E38819B6DBC20074C33A /* Frameworks */,
 				A7B0E38719B6DBC20074C33A /* Products */,
+				54DE4335F123435598EB80A6 /* Pods.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -102,7 +120,7 @@
 			children = (
 				A7B0E38919B6DBC20074C33A /* Foundation.framework */,
 				A7B0E39719B6DBC20074C33A /* XCTest.framework */,
-				A7B0E39A19B6DBC20074C33A /* UIKit.framework */,
+				5EDAFC720F4C4C1D9E52AB7D /* libPods.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -110,8 +128,12 @@
 		A7B0E38B19B6DBC20074C33A /* Courage */ = {
 			isa = PBXGroup;
 			children = (
-				A7B0E38E19B6DBC20074C33A /* Courage.h */,
-				A7B0E39019B6DBC20074C33A /* Courage.m */,
+				A7223B3119BCDBD600204566 /* Courage.h */,
+				A7223B3619BD22AC00204566 /* TNTCourageErrorCodes.h */,
+				A7223B3719BD22AC00204566 /* TNTCourageErrorCodes.m */,
+				A7B0E38E19B6DBC20074C33A /* TNTCourage.h */,
+				A7B0E39019B6DBC20074C33A /* TNTCourage.m */,
+				A7223B3219BD1F2500204566 /* Internal */,
 				A7B0E38C19B6DBC20074C33A /* Supporting Files */,
 			);
 			path = Courage;
@@ -150,9 +172,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A7B0E3A919B6DBC20074C33A /* Build configuration list for PBXNativeTarget "Courage" */;
 			buildPhases = (
+				B6A8D61C03F9463AAA2441B3 /* Check Pods Manifest.lock */,
 				A7B0E38219B6DBC20074C33A /* Sources */,
 				A7B0E38319B6DBC20074C33A /* Frameworks */,
 				A7B0E38419B6DBC20074C33A /* CopyFiles */,
+				67266A4D930D46C29204B0D9 /* Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -219,12 +243,47 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		67266A4D930D46C29204B0D9 /* Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Pods Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Pods/Pods-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B6A8D61C03F9463AAA2441B3 /* Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Check Pods Manifest.lock";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [[ $? != 0 ]] ; then\n    cat << EOM\nerror: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\nEOM\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A7B0E38219B6DBC20074C33A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A7B0E39119B6DBC20074C33A /* Courage.m in Sources */,
+				A7223B3819BD22AC00204566 /* TNTCourageErrorCodes.m in Sources */,
+				A7B0E39119B6DBC20074C33A /* TNTCourage.m in Sources */,
+				A7223B3919BD264B00204566 /* TNTPayloadWriter.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -328,11 +387,11 @@
 		};
 		A7B0E3AA19B6DBC20074C33A /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 54DE4335F123435598EB80A6 /* Pods.xcconfig */;
 			buildSettings = {
 				DSTROOT = /tmp/Courage.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Courage/Courage-Prefix.pch";
-				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -340,11 +399,11 @@
 		};
 		A7B0E3AB19B6DBC20074C33A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 54DE4335F123435598EB80A6 /* Pods.xcconfig */;
 			buildSettings = {
 				DSTROOT = /tmp/Courage.dst;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "Courage/Courage-Prefix.pch";
-				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -405,6 +464,7 @@
 				A7B0E3AB19B6DBC20074C33A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		A7B0E3AC19B6DBC20074C33A /* Build configuration list for PBXNativeTarget "CourageTests" */ = {
 			isa = XCConfigurationList;
@@ -413,6 +473,7 @@
 				A7B0E3AE19B6DBC20074C33A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
