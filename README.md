@@ -31,7 +31,7 @@ TNTCourage *courage = [[TNTCourage alloc] initWithDSN:dsn];
   - A UUID
   - Persistent between app launches
   - Globally unique to the device, __not__ a user account
-- The above method (`[[UIDevice currentDevice] identifierForVendor]`) is the recommended way of setting the device id.
+- `[[UIDevice currentDevice] identifierForVendor]` is the recommended way of setting the device id on iOS.
 
 ### Subscribing to a Channel
 
