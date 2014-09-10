@@ -62,6 +62,8 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 @property (assign, nonatomic) NSTimeInterval reconnectInterval;
 
 // Socket delegate methods.
+// Note: These aren't documented by a real protocol for some dumb reason. Use the official
+//       project documentation instead.
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port;
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)error;
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag;
