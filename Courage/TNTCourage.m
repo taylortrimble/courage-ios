@@ -197,8 +197,8 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 // we are in the stream on the stack: like the channel id we're getting a response for, the number of event payloads, or
 // even the size of an event payload. We need to keep track of that information in the instance instead. :(
 //
-// We do this in a couple ways: we either store the information directly (like the channelId or the number of expected events),
-// use it directly (we can kick of the read of an event payload's data directly from the event data length). We also know
+// We do this in a couple ways: we either store the information directly (like the channelId or the number of expected events)
+// or use it directly (we can kick of the read of an event payload's data directly from the event data length). We also know
 // what kind of data we are receiving, since GCDAsyncSocket lets us **tag** our reads with the read type.
 //
 // So basically, our tags work like advancing a state machine, and the non-state data is stored as properties on the instance.
