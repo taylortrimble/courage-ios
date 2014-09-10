@@ -175,7 +175,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     }
     
     // Start reading incoming messages.
-    [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagMessageHeader];
+    [self.socket readDataToLength:sizeof(TNTCourageMessageHeader)
+                      withTimeout:TNTCourageTimeoutNever
+                              tag:TNTCourageSocketReadTagMessageHeader];
     
     // Reset the reconnect interval.
     [self resetReconnectInterval];
@@ -213,11 +215,15 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             
             switch (header) {
                 case TNTCourageSubscribeOKResponseMessageHeader: {
-                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagOKChannel];
+                    [self.socket readDataToLength:sizeof(uuid_t)
+                                      withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageSocketReadTagOKChannel];
                 } break;
                     
                 case TNTCourageSubscribeStreamingResponseMessageHeader: {
-                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagStreamingChannel];
+                    [self.socket readDataToLength:sizeof(uuid_t)
+                                      withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageSocketReadTagStreamingChannel];
                 } break;
                     
                 default:
@@ -227,7 +233,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             
         // If it's an OK response payload, we don't want the information. We just prepare to read the next message's header.
         case TNTCourageSocketReadTagOKChannel: {
-            [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagMessageHeader];
+            [self.socket readDataToLength:sizeof(TNTCourageMessageHeader)
+                              withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageSocketReadTagMessageHeader];
         } break;
             
         // If it's a streaming channel, we cache it for later and queue a read for how many events we expect to read.
@@ -236,7 +244,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             [data getBytes:&channelIdBuffer length:sizeof(uuid_t)];
             self.currentChannelId = [[NSUUID alloc] initWithUUIDBytes:channelIdBuffer];
             
-            [self.socket readDataToLength:sizeof(UInt8) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagStreamingEventCount];
+            [self.socket readDataToLength:sizeof(UInt8)
+                              withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageSocketReadTagStreamingEventCount];
         } break;
             
         // If it's an event count, cache it and start reading event payloads.
@@ -246,7 +256,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             self.remainingEvents = remainingEvents;
             
             // We're asuming the number of events is at least 1.
-            [self.socket readDataToLength:sizeof(UInt16) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagStreamingEventLength];
+            [self.socket readDataToLength:sizeof(UInt16)
+                              withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageSocketReadTagStreamingEventLength];
         } break;
             
         // If it's an event payload length, queue a read for the payload.
@@ -255,7 +267,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             [data getBytes:&length length:sizeof(UInt16)];
             length = CFSwapInt16BigToHost(length);
             
-            [self.socket readDataToLength:length withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagStreamingEventData];
+            [self.socket readDataToLength:length
+                              withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageSocketReadTagStreamingEventData];
         } break;
             
         // If it's the event payload data, dispatch the event. If it's the last event, queue a read for the next message's header.
@@ -268,9 +282,13 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             self.remainingEvents--;
             
             if (self.remainingEvents > 0) {
-                [self.socket readDataToLength:sizeof(UInt16) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagStreamingEventLength];
+                [self.socket readDataToLength:sizeof(UInt16)
+                                  withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageSocketReadTagStreamingEventLength];
             } else {
-                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketReadTagMessageHeader];
+                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader)
+                                  withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageSocketReadTagMessageHeader];
             }
         } break;
             
