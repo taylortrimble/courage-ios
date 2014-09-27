@@ -20,14 +20,13 @@ typedef NS_OPTIONS(UInt8, TNTCourageSubscribeOptions) {
 
 @property (strong, nonatomic) NSString *publicKey;
 @property (strong, nonatomic) NSString *privateKey;
-
 @property (strong, nonatomic) NSUUID *deviceId;
+@property (assign, nonatomic) TNTCourageSubscribeOptions subscribeOptions;
 
 - (void)setPublicKey:(NSString *)publicKey privateKey:(NSString *)privateKey;
 
 // Ensure that the public key, private key, and device id are set before subscribing.
 - (BOOL)subscribeToChannel:(NSUUID *)channelId
-                   options:(TNTCourageSubscribeOptions)options
                      error:(NSError *__autoreleasing *)error
                      block:(void (^)(NSData *event))block;
 

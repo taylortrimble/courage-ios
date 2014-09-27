@@ -58,8 +58,8 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 @property (strong, nonatomic) GCDAsyncSocket *socket;
 
-// The subscribers. Key: UUID string. Value: block that takes NSData.
-@property (strong, nonatomic) NSMutableDictionary *subscribers;
+// Subscription info.
+@property (strong, nonatomic) NSMutableDictionary *subscribers; // Key: UUID string. Value: block that takes NSData.
 
 // State elements for processing input asynchronously. Frequently shared between
 // different message types.
@@ -79,7 +79,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 // Utility methods.
 - (void)connect;
-- (void)sendSubscribeRequestForChannels:(NSArray *)channelIds options:(TNTCourageSubscribeOptions)options;
+- (void)sendSubscribeRequestForChannels:(NSArray *)channelIds;
 - (NSTimeInterval)nextReconnectInterval;
 - (void)resetReconnectInterval;
 
@@ -136,7 +136,6 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 #pragma mark - Subscribe
 
 - (BOOL)subscribeToChannel:(NSUUID *)channelId
-                   options:(TNTCourageSubscribeOptions)options
                      error:(NSError *__autoreleasing *)error
                      block:(void (^)(NSData *))block
 {
@@ -162,7 +161,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     // If we're connected, send the subscribe request instantly. Otherwise, kick off the connection
     // and we'll subscribe in the socket:didConnectToHost: callback.
     if (self.socket.isConnected) {
-        [self sendSubscribeRequestForChannels:@[ channelId ] options:options];
+        [self sendSubscribeRequestForChannels:@[ channelId ]];
     } else {
         // Only kick off the connection if we haven't already kicked it off. Even if we weren't connected above,
         // if we have a socket object then we are retrying the connection.
@@ -187,7 +186,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     }
     
     // Send a SubscribeRequest for the channels.
-    [self sendSubscribeRequestForChannels:channelIds options:TNTCourageSubscribeOptionReplay];   // TODO: use original options.
+    [self sendSubscribeRequestForChannels:channelIds];
     
     // Start reading incoming messages.
     [self.socket readDataToLength:sizeof(TNTCourageMessageHeader)
@@ -400,7 +399,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     [self.socket connectToHost:self.host onPort:self.port error:nil];
 }
 
-- (void)sendSubscribeRequestForChannels:(NSArray *)channelIds options:(TNTCourageSubscribeOptions)options
+- (void)sendSubscribeRequestForChannels:(NSArray *)channelIds
 {
     // Check that no more than the max number of channels is written.
     if ([channelIds count] > UINT8_MAX) {
@@ -424,7 +423,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         [payloadWriter writeUUID:channelId];
     }
     
-    [payloadWriter writeUint8:options];
+    [payloadWriter writeUint8:self.subscribeOptions];
     
     // Send to server.
     [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageWriteTagSubscribeRequest];
