@@ -21,7 +21,7 @@ Getting Started
 ```obj-c
 TNTCourage *courage = [[TNTCourage alloc] initWithDSN:dsn];
 [courage setPublicKey:publicKey privateKey:privateKey];
-[courage setDeviceId:[[UIDevice currentDevice] identifierForVendor]];
+[courage setDeviceId:[UIDevice currentDevice].identifierForVendor];
 ```
 
 - All of the configuration above is mandatory.
@@ -31,7 +31,7 @@ TNTCourage *courage = [[TNTCourage alloc] initWithDSN:dsn];
   - A UUID
   - Persistent between app launches
   - Globally unique to the device, __not__ a user account
-- `[[UIDevice currentDevice] identifierForVendor]` is the recommended way of setting the device id on iOS.
+- `[UIDevice currentDevice].identifierForVendor` is the recommended way of setting the device id on iOS.
 
 ### Subscribing to a Channel
 

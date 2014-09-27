@@ -20,22 +20,28 @@ typedef UInt8 TNTCourageMessageHeader;
 
 #pragma mark - Enums and Constants
 
-typedef NS_ENUM(long, TNTCourageSocketReadTag) {
-    TNTCourageSocketReadTagMessageHeader,
-    TNTCourageSocketReadTagOKChannel,
-    TNTCourageSocketReadTagStreamingChannel,
-    TNTCourageSocketReadTagStreamingEventCount,
-    TNTCourageSocketReadTagStreamingEventLength,
-    TNTCourageSocketReadTagStreamingEventData
+typedef NS_ENUM(long, TNTCourageReadTag) {
+    TNTCourageReadTagMessageHeader,
+    TNTCourageReadTagSubscribeSuccessChannelCount,
+    TNTCourageReadTagSubscribeSuccessChannelId,
+    TNTCourageReadTagSubscribeSuccessEventCount,
+    TNTCourageReadTagSubscribeSuccessEventId,
+    TNTCourageReadTagSubscribeSuccessEventPayloadLength,
+    TNTCourageReadTagSubscribeSuccessEventPayload,
+    TNTCourageReadTagSubscribeDataChannelId,
+    TNTCourageReadTagSubscribeDataEventId,
+    TNTCourageReadTagSubscribeDataEventPayloadLength,
+    TNTCourageReadTagSubscribeDataEventPayload,
 };
 
-typedef NS_ENUM(long, TNTCourageSocketWriteTag) {
-    TNTCourageSocketWriteTagSubscribeMessageRequest
+typedef NS_ENUM(long, TNTCourageWriteTag) {
+    TNTCourageWriteTagSubscribeRequest,
+    TNTCourageWriteTagAckEvents,
 };
 
-const TNTCourageMessageHeader TNTCourageSubscribeRequestMessageHeader = 0x10;
-const TNTCourageMessageHeader TNTCourageSubscribeOKResponseMessageHeader = 0x11;
-const TNTCourageMessageHeader TNTCourageSubscribeStreamingResponseMessageHeader = 0x13;
+const TNTCourageMessageHeader TNTCourageSubscribeRequestMessageHeader = 0x11;
+const TNTCourageMessageHeader TNTCourageSubscribeSuccessMessageHeader = 0x12;
+const TNTCourageMessageHeader TNTCourageSubscribeDataMessageHeader = 0x14;
 
 const NSTimeInterval TNTCourageInitialReconnectInterval = 0.1;  // 100ms.
 const NSTimeInterval TNTCourageMaxReconnectInterval = 300;      // 5 min.
@@ -55,9 +61,12 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 // The subscribers. Key: UUID string. Value: block that takes NSData.
 @property (strong, nonatomic) NSMutableDictionary *subscribers;
 
-// State elements for processing input asynchronously.
+// State elements for processing input asynchronously. Frequently shared between
+// different message types.
+@property (assign, nonatomic) UInt8 remainingChannels;
 @property (strong, nonatomic) NSUUID *currentChannelId;
 @property (assign, nonatomic) UInt8 remainingEvents;
+@property (strong, nonatomic) NSUUID *currentEventId;
 
 @property (assign, nonatomic) NSTimeInterval reconnectInterval;
 
@@ -70,7 +79,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 // Utility methods.
 - (void)connect;
-- (void)sendSubscribeRequestForChannel:(NSUUID *)channelId options:(TNTCourageSubscribeOptions)options;
+- (void)sendSubscribeRequestForChannels:(NSArray *)channelIds options:(TNTCourageSubscribeOptions)options;
 - (NSTimeInterval)nextReconnectInterval;
 - (void)resetReconnectInterval;
 
@@ -105,8 +114,10 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         
         _subscribers = [[NSMutableDictionary alloc] init];
         
+        _remainingChannels = 0;
         _currentChannelId = nil;
         _remainingEvents = 0;
+        _currentEventId = nil;
         
         _reconnectInterval = TNTCourageInitialReconnectInterval;
     }
@@ -151,7 +162,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     // If we're connected, send the subscribe request instantly. Otherwise, kick off the connection
     // and we'll subscribe in the socket:didConnectToHost: callback.
     if (self.socket.isConnected) {
-        [self sendSubscribeRequestForChannel:channelId options:options];
+        [self sendSubscribeRequestForChannels:@[ channelId ] options:options];
     } else {
         // Only kick off the connection if we haven't already kicked it off. Even if we weren't connected above,
         // if we have a socket object then we are retrying the connection.
@@ -168,16 +179,20 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port
 {
-    // On connection, send a subscribe request for each subscriber.
+    // Derive a list of channel UUIDs from their string representation.
+    NSMutableArray *channelIds = [[NSMutableArray alloc] initWithCapacity:[self.subscribers count]];
     for (NSString *channel in self.subscribers) {
         NSUUID *channelId = [[NSUUID alloc] initWithUUIDString:channel];
-        [self sendSubscribeRequestForChannel:channelId options:TNTCourageSubscribeOptionDefault];   // TODO: use original options.
+        [channelIds addObject:channelId];
     }
+    
+    // Send a SubscribeRequest for the channels.
+    [self sendSubscribeRequestForChannels:channelIds options:TNTCourageSubscribeOptionReplay];   // TODO: use original options.
     
     // Start reading incoming messages.
     [self.socket readDataToLength:sizeof(TNTCourageMessageHeader)
                       withTimeout:TNTCourageTimeoutNever
-                              tag:TNTCourageSocketReadTagMessageHeader];
+                              tag:TNTCourageReadTagMessageHeader];
     
     // Reset the reconnect interval.
     [self resetReconnectInterval];
@@ -195,9 +210,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 //
 // Instead, we have to get data from our reads in this callback. That means that we can't keep information about where
 // we are in the stream on the stack: like the channel id we're getting a response for, the number of event payloads, or
-// even the size of an event payload. We need to keep track of that information in the instance instead. :(
+// even the size of a single event payload. We need to keep track of that information in the instance instead. :(
 //
-// We do this in a couple ways: we either store the information directly (like the channelId or the number of expected events)
+// We do this in a couple ways: we either store the information directly (like the channel id or the number of expected events)
 // or use it directly (we can kick of the read of an event payload's data directly from the event data length). We also know
 // what kind of data we are receiving, since GCDAsyncSocket lets us **tag** our reads with the read type.
 //
@@ -211,19 +226,19 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 {
     switch (tag) {
         // If it's a message header, kick off a read for the next data we want.
-        case TNTCourageSocketReadTagMessageHeader: {
+        case TNTCourageReadTagMessageHeader: {
             TNTCourageMessageHeader header;
             [data getBytes:&header length:sizeof(TNTCourageMessageHeader)];
             
             switch (header) {
-                case TNTCourageSubscribeOKResponseMessageHeader: {
-                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                              tag:TNTCourageSocketReadTagOKChannel];
+                case TNTCourageSubscribeSuccessMessageHeader: {
+                    [self.socket readDataToLength:sizeof(UInt8) withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageReadTagSubscribeSuccessChannelCount];
                 } break;
                     
-                case TNTCourageSubscribeStreamingResponseMessageHeader: {
+                case TNTCourageSubscribeDataMessageHeader: {
                     [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                              tag:TNTCourageSocketReadTagStreamingChannel];
+                                              tag:TNTCourageReadTagSubscribeDataChannelId];
                 } break;
                     
                 default:
@@ -231,59 +246,145 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             }
         } break;
             
-        // If it's an OK response payload, we don't want the information. We just prepare to read the next message's header.
-        case TNTCourageSocketReadTagOKChannel: {
-            [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
-                                      tag:TNTCourageSocketReadTagMessageHeader];
+        // If it's a channel count, cache it and start reading channel payloads.
+        case TNTCourageReadTagSubscribeSuccessChannelCount: {
+            UInt8 remainingChannels;
+            [data getBytes:&remainingChannels length:sizeof(UInt8)];
+            self.remainingChannels = remainingChannels;
+            
+            // Either process channels or continue to the next message.
+            if (remainingChannels > 0) {
+                [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagSubscribeSuccessChannelId];
+            } else {
+                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagMessageHeader];
+            }
         } break;
             
-        // If it's a streaming channel, we cache it for later and queue a read for how many events we expect to read.
-        case TNTCourageSocketReadTagStreamingChannel: {
+        // If it's a channel id, cache it and start reading events.
+        case TNTCourageReadTagSubscribeSuccessChannelId: {
             uuid_t channelIdBuffer;
             [data getBytes:&channelIdBuffer length:sizeof(uuid_t)];
             self.currentChannelId = [[NSUUID alloc] initWithUUIDBytes:channelIdBuffer];
             
             [self.socket readDataToLength:sizeof(UInt8) withTimeout:TNTCourageTimeoutNever
-                                      tag:TNTCourageSocketReadTagStreamingEventCount];
+                                      tag:TNTCourageReadTagSubscribeSuccessEventCount];
         } break;
             
-        // If it's an event count, cache it and start reading event payloads.
-        case TNTCourageSocketReadTagStreamingEventCount: {
+        // If it's an event count, cache it and start reading event data.
+        case TNTCourageReadTagSubscribeSuccessEventCount: {
             UInt8 remainingEvents;
             [data getBytes:&remainingEvents length:sizeof(UInt8)];
             self.remainingEvents = remainingEvents;
             
-            // We're asuming the number of events is at least 1.
+            // Either process events, or mark the channel as complete.
+            if (remainingEvents > 0) {
+                [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagSubscribeSuccessEventId];
+            } else {
+                self.remainingChannels--;
+                
+                // If there are remaining channels, continue to the next channel. Otherwise, continue to the next message.
+                if (self.remainingChannels > 0) {
+                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageReadTagSubscribeSuccessChannelId];
+                } else {
+                    [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageReadTagMessageHeader];
+                }
+            }
+        } break;
+            
+        // If it's an event id, cache it and read the next event payload.
+        case TNTCourageReadTagSubscribeSuccessEventId: {
+            uuid_t eventIdBuffer;
+            [data getBytes:&eventIdBuffer length:sizeof(uuid_t)];
+            self.currentEventId = [[NSUUID alloc] initWithUUIDBytes:eventIdBuffer];
+            
             [self.socket readDataToLength:sizeof(UInt16) withTimeout:TNTCourageTimeoutNever
-                                      tag:TNTCourageSocketReadTagStreamingEventLength];
+                                      tag:TNTCourageReadTagSubscribeSuccessEventPayloadLength];
         } break;
             
         // If it's an event payload length, queue a read for the payload.
-        case TNTCourageSocketReadTagStreamingEventLength: {
+        case TNTCourageReadTagSubscribeSuccessEventPayloadLength: {
             UInt16 length;
             [data getBytes:&length length:sizeof(UInt16)];
             length = CFSwapInt16BigToHost(length);
             
+            // Assume payload length is > 0, it's much easier.
             [self.socket readDataToLength:length withTimeout:TNTCourageTimeoutNever
-                                      tag:TNTCourageSocketReadTagStreamingEventData];
+                                      tag:TNTCourageReadTagSubscribeSuccessEventPayload];
         } break;
             
-        // If it's the event payload data, dispatch the event. If it's the last event, queue a read for the next message's header.
-        case TNTCourageSocketReadTagStreamingEventData: {
+        // If it's the event payload data, dispatch the event.
+        case TNTCourageReadTagSubscribeSuccessEventPayload: {
             void (^block)(NSData *) = self.subscribers[[self.currentChannelId UUIDString]];
             if (block != nil) {
                 block(data);
             }
             
+            // Mark the event as complete.
             self.remainingEvents--;
             
+            // Either process more events, or mark the channel as complete.
             if (self.remainingEvents > 0) {
-                [self.socket readDataToLength:sizeof(UInt16) withTimeout:TNTCourageTimeoutNever
-                                          tag:TNTCourageSocketReadTagStreamingEventLength];
+                [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagSubscribeSuccessEventId];
             } else {
-                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
-                                          tag:TNTCourageSocketReadTagMessageHeader];
+                self.remainingChannels--;
+                
+                // If there are remaining channels, continue to the next channel. Otherwise, continue to the next message.
+                if (self.remainingChannels > 0) {
+                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageReadTagSubscribeSuccessChannelId];
+                } else {
+                    [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                              tag:TNTCourageReadTagMessageHeader];
+                }
             }
+        } break;
+            
+        // If it's a channel id, cache it and queue a read for the event id.
+        case TNTCourageReadTagSubscribeDataChannelId: {
+            uuid_t channelIdBuffer;
+            [data getBytes:&channelIdBuffer length:sizeof(uuid_t)];
+            self.currentChannelId = [[NSUUID alloc] initWithUUIDBytes:channelIdBuffer];
+            
+            [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageReadTagSubscribeDataEventId];
+        } break;
+            
+        // If it's an event id, cache it and queue a read for the event payload's length.
+        case TNTCourageReadTagSubscribeDataEventId: {
+            uuid_t eventIdBuffer;
+            [data getBytes:&eventIdBuffer length:sizeof(uuid_t)];
+            self.currentEventId = [[NSUUID alloc] initWithUUIDBytes:eventIdBuffer];
+            
+            [self.socket readDataToLength:sizeof(UInt16) withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageReadTagSubscribeDataEventPayloadLength];
+        } break;
+            
+        // If it's the event payload's length, queue a read for the event payload.
+        case TNTCourageReadTagSubscribeDataEventPayloadLength: {
+            UInt16 length;
+            [data getBytes:&length length:sizeof(UInt16)];
+            length = CFSwapInt16BigToHost(length);
+            
+            // Assume payload length is > 0, it's much easier.
+            [self.socket readDataToLength:length withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageReadTagSubscribeDataEventPayload];
+        } break;
+            
+        // If it's the event payload data, dispatch the event.
+        case TNTCourageReadTagSubscribeDataEventPayload: {
+            void (^block)(NSData *) = self.subscribers[[self.currentChannelId UUIDString]];
+            if (block != nil) {
+                block(data);
+            }
+            
+            [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageReadTagMessageHeader];
         } break;
             
         default:
@@ -299,23 +400,34 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     [self.socket connectToHost:self.host onPort:self.port error:nil];
 }
 
-- (void)sendSubscribeRequestForChannel:(NSUUID *)channelId options:(TNTCourageSubscribeOptions)options
+- (void)sendSubscribeRequestForChannels:(NSArray *)channelIds options:(TNTCourageSubscribeOptions)options
 {
+    // Check that no more than the max number of channels is written.
+    if ([channelIds count] > UINT8_MAX) {
+        // TODO: Better solution to report error to lib user.
+        return;
+    }
+    
     // Init request with request header.
     NSMutableData *request = [[NSMutableData alloc] initWithCapacity:sizeof(TNTCourageMessageHeader)];
     [request appendBytes:&TNTCourageSubscribeRequestMessageHeader length:sizeof(TNTCourageMessageHeader)];
     
     // Write payload.
     TNTPayloadWriter *payloadWriter = [[TNTPayloadWriter alloc] initWithMutableData:request];
+    [payloadWriter writeUUID:self.providerId];
     [payloadWriter writeString:self.publicKey];
     [payloadWriter writeString:self.privateKey];
-    [payloadWriter writeUUID:self.providerId];
-    [payloadWriter writeUUID:channelId];
     [payloadWriter writeUUID:self.deviceId];
+    [payloadWriter writeUint8:(UInt8)[channelIds count]];
+    
+    for (NSUUID *channelId in channelIds) {
+        [payloadWriter writeUUID:channelId];
+    }
+    
     [payloadWriter writeUint8:options];
     
     // Send to server.
-    [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageSocketWriteTagSubscribeMessageRequest];
+    [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageWriteTagSubscribeRequest];
 }
 
 - (NSTimeInterval)nextReconnectInterval

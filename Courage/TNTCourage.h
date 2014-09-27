@@ -10,7 +10,8 @@
 
 typedef NS_OPTIONS(UInt8, TNTCourageSubscribeOptions) {
     TNTCourageSubscribeOptionDefault = 0,
-    TNTCourageSubscribeOptionCatchUp = 1 << 0
+    TNTCourageSubscribeOptionReplay = 1 << 0,
+    TNTCourageSubscribeOptionReplayOnly = 1 << 1,
 };
 
 @interface TNTCourage : NSObject
