@@ -42,6 +42,7 @@ typedef NS_ENUM(long, TNTCourageWriteTag) {
 const TNTCourageMessageHeader TNTCourageSubscribeRequestMessageHeader = 0x11;
 const TNTCourageMessageHeader TNTCourageSubscribeSuccessMessageHeader = 0x12;
 const TNTCourageMessageHeader TNTCourageSubscribeDataMessageHeader = 0x14;
+const TNTCourageMessageHeader TNTCourageAckEventsMessageHeader = 0x15;
 
 const NSTimeInterval TNTCourageInitialReconnectInterval = 0.1;  // 100ms.
 const NSTimeInterval TNTCourageMaxReconnectInterval = 300;      // 5 min.
@@ -67,6 +68,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 @property (strong, nonatomic) NSUUID *currentChannelId;
 @property (assign, nonatomic) UInt8 remainingEvents;
 @property (strong, nonatomic) NSUUID *currentEventId;
+@property (strong, nonatomic) NSMutableArray *eventsToAcknowledge; // Array of NSUUID *.
 
 @property (assign, nonatomic) BOOL replayAndDisconnectOnly;
 @property (assign, nonatomic) NSTimeInterval reconnectInterval;
@@ -86,6 +88,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 // Utility methods.
 - (void)connectSocket;
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds;
+- (void)acknowledgeEvents:(NSArray *)eventIds;
 - (NSTimeInterval)nextReconnectInterval;
 - (void)resetReconnectInterval;
 
@@ -124,7 +127,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         _currentChannelId = nil;
         _remainingEvents = 0;
         _currentEventId = nil;
+        _eventsToAcknowledge = [[NSMutableArray alloc] init];
         
+        _replayAndDisconnectOnly = NO;
         _reconnectInterval = TNTCourageInitialReconnectInterval;
     }
     
@@ -313,6 +318,8 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
                 block(data);
             }
             
+            [self.eventsToAcknowledge addObject:self.currentEventId];
+            
             // Mark the event as complete. If it was the last event, mark the channel complete.
             [self subscribeSuccessEventProcessed];
             [self processNextSubscribeSuccessElement];
@@ -361,6 +368,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
                 block(data);
             }
             
+            [self acknowledgeEvents:@[ self.currentEventId ]];
             [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
                                       tag:TNTCourageReadTagMessageHeader];
         } break;
@@ -379,15 +387,21 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
                                   tag:TNTCourageReadTagSubscribeSuccessEventId];
     } else {
-        // If there are remaining channels, process that. Otherwise, continue to the next message.
+        // If there are remaining channels, process that.
         if (self.remainingChannels > 0) {
             [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
                                       tag:TNTCourageReadTagSubscribeSuccessChannelId];
-        } else if (!self.replayAndDisconnectOnly) {
-            [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
-                                      tag:TNTCourageReadTagMessageHeader];
         } else {
-            [self disconnect];
+            // Once all channels are processed, acknowledge events.
+            [self acknowledgeEvents:self.eventsToAcknowledge];
+            
+            // Either disconnect once the replay is finished, or continue to the next message.
+            if (self.replayAndDisconnectOnly) {
+                [self disconnect];
+            } else {
+                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagMessageHeader];
+            }
         }
     }
 }
@@ -440,7 +454,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds
 {
-    // Check that no more than the max number of channels is written.
+    // Check that no more than the max number of channels are written.
     if ([channelIds count] > UINT8_MAX) {
         // TODO: Better solution to report error to lib user.
         return;
@@ -475,6 +489,29 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     
     // Send to server.
     [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageWriteTagSubscribeRequest];
+}
+
+- (void)acknowledgeEvents:(NSArray *)eventIds
+{
+    // Check that no more than the max number of event ids are written.
+    if ([eventIds count] > UINT8_MAX) {
+        // TODO: Better solution to report error to lib user.
+        return;
+    }
+    
+    // Init request with request header.
+    NSMutableData *request = [[NSMutableData alloc] initWithCapacity:sizeof(TNTCourageMessageHeader)];
+    [request appendBytes:&TNTCourageAckEventsMessageHeader length:sizeof(TNTCourageMessageHeader)];
+    
+    // Write payload.
+    TNTPayloadWriter *payloadWriter = [[TNTPayloadWriter alloc] initWithMutableData:request];
+    [payloadWriter writeUint8:(UInt8)[eventIds count]];
+    for (NSUUID *eventId in eventIds) {
+        [payloadWriter writeUUID:eventId];
+    }
+    
+    // Send to server.
+    [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageWriteTagAckEvents];
 }
 
 - (NSTimeInterval)nextReconnectInterval
