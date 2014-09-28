@@ -86,7 +86,6 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 - (void)subscribeSuccessChannelProcessed;
 
 // Utility methods.
-- (void)connectSocket;
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds;
 - (void)acknowledgeEvents:(NSArray *)eventIds;
 - (NSTimeInterval)nextReconnectInterval;
@@ -105,31 +104,24 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         // Format: `host:port/provider-id`
         NSCharacterSet *separators = [NSCharacterSet characterSetWithCharactersInString:@":/"];
         NSArray *parts = [dsn componentsSeparatedByCharactersInSet:separators];
+
         if ([parts count] != 3) {
             return nil;
         }
-        
-        _host = parts[0];
         
         NSInteger port = [parts[1] integerValue];
         if (port > UINT32_MAX) {
             return nil;
         }
 
+        _host = parts[0];
         _port = (UInt32)port;
         _providerId = [[NSUUID alloc] initWithUUIDString:parts[2]];
         
-        _socket = nil;
-        
+        _socket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:dispatch_get_main_queue()];
         _subscribers = [[NSMutableDictionary alloc] init];
-        
-        _remainingChannels = 0;
-        _currentChannelId = nil;
-        _remainingEvents = 0;
-        _currentEventId = nil;
         _eventsToAcknowledge = [[NSMutableArray alloc] init];
         
-        _replayAndDisconnectOnly = NO;
         _reconnectInterval = TNTCourageInitialReconnectInterval;
     }
     
@@ -425,7 +417,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 - (void)connect
 {
     self.replayAndDisconnectOnly = NO;
-    [self connectSocket];
+    
+    // TODO: Do something if there's a failure.
+    [self.socket connectToHost:self.host onPort:self.port error:nil];
 }
 
 - (void)disconnect
@@ -436,21 +430,12 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 - (void)replayAndDisconnect
 {
     self.replayAndDisconnectOnly = YES;
-    [self connectSocket];
-}
-
-#pragma mark - Utility
-
-- (void)connectSocket
-{
-    // Create the socket if we haven't created one yet.
-    if (!self.socket) {
-        self.socket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:dispatch_get_main_queue()];
-    }
     
     // TODO: Do something if there's a failure.
     [self.socket connectToHost:self.host onPort:self.port error:nil];
 }
+
+#pragma mark - Utility
 
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds
 {
