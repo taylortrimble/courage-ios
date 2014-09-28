@@ -39,7 +39,7 @@ courage.subscribeOptions = TNTCourageSubscribeOptionReplay;
 
 ```obj-c
 NSError *error;
-[self.courage subscribeToChannel:channelId error:&error block:^(NSData *event) {
+[courage subscribeToChannel:channelId error:&error block:^(NSData *event) {
     NSLog(@"%@", [[NSString alloc] initWithData:event encoding:NSUTF8StringEncoding]);
 }];
 ```
@@ -49,6 +49,17 @@ NSError *error;
 - Subscription will fail if the DSN, public or private keys, or device id aren't set.
 
 The example above assumes you are sending UTF-8 string data over the channels. The example simply logs that string.
+
+
+### Starting the Connection
+
+After initializing Courage and subscribscribing to a channel, connect to the server.
+
+```objc
+[courage connect];
+```
+
+You can subscribe to additional channels after connecting.
 
 License
 -------
