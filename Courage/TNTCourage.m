@@ -77,6 +77,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)error;
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag;
 
+// Socket delegate utility methods
+- (void)readNextSubscribeSuccessElement;
+
 // Utility methods.
 - (void)connect;
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds;
@@ -250,15 +253,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             UInt8 remainingChannels;
             [data getBytes:&remainingChannels length:sizeof(UInt8)];
             self.remainingChannels = remainingChannels;
+            self.remainingEvents = 0;
             
-            // Either process channels or continue to the next message.
-            if (remainingChannels > 0) {
-                [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                          tag:TNTCourageReadTagSubscribeSuccessChannelId];
-            } else {
-                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
-                                          tag:TNTCourageReadTagMessageHeader];
-            }
+            [self readNextSubscribeSuccessElement];
         } break;
             
         // If it's a channel id, cache it and start reading events.
@@ -277,22 +274,11 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             [data getBytes:&remainingEvents length:sizeof(UInt8)];
             self.remainingEvents = remainingEvents;
             
-            // Either process events, or mark the channel as complete.
-            if (remainingEvents > 0) {
-                [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                          tag:TNTCourageReadTagSubscribeSuccessEventId];
-            } else {
-                self.remainingChannels--;
-                
-                // If there are remaining channels, continue to the next channel. Otherwise, continue to the next message.
-                if (self.remainingChannels > 0) {
-                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                              tag:TNTCourageReadTagSubscribeSuccessChannelId];
-                } else {
-                    [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
-                                              tag:TNTCourageReadTagMessageHeader];
-                }
+            if (remainingEvents <= 0) {
+                [self subscribeSuccessChannelProcessed];
             }
+            
+            [self readNextSubscribeSuccessElement];
         } break;
             
         // If it's an event id, cache it and read the next event payload.
@@ -311,7 +297,12 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             [data getBytes:&length length:sizeof(UInt16)];
             length = CFSwapInt16BigToHost(length);
             
-            // Assume payload length is > 0, it's much easier.
+            if (length <= 0) {
+                [self subscribeSuccessEventProcessed];
+                [self readNextSubscribeSuccessElement];
+                break;
+            }
+
             [self.socket readDataToLength:length withTimeout:TNTCourageTimeoutNever
                                       tag:TNTCourageReadTagSubscribeSuccessEventPayload];
         } break;
@@ -323,25 +314,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
                 block(data);
             }
             
-            // Mark the event as complete.
-            self.remainingEvents--;
-            
-            // Either process more events, or mark the channel as complete.
-            if (self.remainingEvents > 0) {
-                [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                          tag:TNTCourageReadTagSubscribeSuccessEventId];
-            } else {
-                self.remainingChannels--;
-                
-                // If there are remaining channels, continue to the next channel. Otherwise, continue to the next message.
-                if (self.remainingChannels > 0) {
-                    [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
-                                              tag:TNTCourageReadTagSubscribeSuccessChannelId];
-                } else {
-                    [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
-                                              tag:TNTCourageReadTagMessageHeader];
-                }
-            }
+            // Mark the event as complete. If it was the last event, mark the channel complete.
+            [self subscribeSuccessEventProcessed];
+            [self readNextSubscribeSuccessElement];
         } break;
             
         // If it's a channel id, cache it and queue a read for the event id.
@@ -370,9 +345,14 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             [data getBytes:&length length:sizeof(UInt16)];
             length = CFSwapInt16BigToHost(length);
             
-            // Assume payload length is > 0, it's much easier.
-            [self.socket readDataToLength:length withTimeout:TNTCourageTimeoutNever
-                                      tag:TNTCourageReadTagSubscribeDataEventPayload];
+            // If payload length is <= 0, just read the next message.
+            if (length > 0) {
+                [self.socket readDataToLength:length withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagSubscribeDataEventPayload];
+            } else {
+                [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                          tag:TNTCourageReadTagMessageHeader];
+            }
         } break;
             
         // If it's the event payload data, dispatch the event.
@@ -392,6 +372,40 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 }
 
 #pragma mark - Utility
+#pragma mark Socket Delegate Utilities
+
+- (void)readNextSubscribeSuccessElement
+{
+    // If there is an event to process, process that.
+    if (self.remainingEvents > 0) {
+        [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                  tag:TNTCourageReadTagSubscribeSuccessEventId];
+    } else {
+        // If there are remaining channels, process that. Otherwise, continue to the next message.
+        if (self.remainingChannels > 0) {
+            [self.socket readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageReadTagSubscribeSuccessChannelId];
+        } else {
+            [self.socket readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
+                                      tag:TNTCourageReadTagMessageHeader];
+        }
+    }
+}
+
+- (void)subscribeSuccessEventProcessed
+{
+    self.remainingEvents--;
+    
+    if (self.remainingEvents == 0) {
+        [self subscribeSuccessChannelProcessed];
+    }
+}
+
+- (void)subscribeSuccessChannelProcessed
+{
+    self.remainingChannels--;
+}
+
 
 - (void)connect
 {
