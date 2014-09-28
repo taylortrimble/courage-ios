@@ -30,4 +30,9 @@ typedef NS_OPTIONS(UInt8, TNTCourageSubscribeOptions) {
                      error:(NSError *__autoreleasing *)error
                      block:(void (^)(NSData *event))block;
 
+- (void)connect;
+- (void)disconnect;
+
+- (void)replayAndDisconnect;
+
 @end
