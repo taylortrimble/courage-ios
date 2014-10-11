@@ -48,20 +48,6 @@
     [self.buffer appendBytes:uuidBuffer length:sizeof(uuid_t)];
 }
 
-- (BOOL)writeString:(NSString *)string
-{
-    NSData *encodedString = [string dataUsingEncoding:NSUTF8StringEncoding];
-    if ([encodedString length] > UINT8_MAX) {
-        return NO;
-    }
-    
-    UInt8 length = [encodedString length];
-    [self.buffer appendBytes:&length length:sizeof(UInt8)];
-    [self.buffer appendData:encodedString];
-    
-    return YES;
-}
-
 - (BOOL)writeBlob:(NSData *)blob
 {
     if ([blob length] > UINT16_MAX) {
@@ -73,6 +59,11 @@
     [self.buffer appendData:blob];
     
     return YES;
+}
+
+- (BOOL)writeString:(NSString *)string
+{
+    return [self writeBlob:[string dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
 @end
