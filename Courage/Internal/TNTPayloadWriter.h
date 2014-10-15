@@ -14,7 +14,7 @@
 
 - (void)writeUint8:(UInt8)u;
 - (void)writeUUID:(NSUUID *)uuid;
-- (BOOL)writeString:(NSString *)string;
 - (BOOL)writeBlob:(NSData *)blob;
+- (BOOL)writeString:(NSString *)string;
 
 @end
