@@ -14,6 +14,12 @@ typedef NS_OPTIONS(UInt8, TNTCourageSubscribeOptions) {
     TNTCourageSubscribeOptionReplayOnly = 1 << 1,
 };
 
+typedef NS_ENUM(NSInteger, TNTCourageReplayResult) {
+    TNTCourageReplayResultNewEvents,
+    TNTCourageReplayResultNoEvents,
+    TNTCourageReplayResultFailed,
+};
+
 @interface TNTCourage : NSObject
 
 - (instancetype)initWithDSN:(NSString *)dsn;
@@ -33,6 +39,6 @@ typedef NS_OPTIONS(UInt8, TNTCourageSubscribeOptions) {
 - (void)connect;
 - (void)disconnect;
 
-- (void)replayAndDisconnect;
+- (void)replayAndDisconnect:(void (^)(TNTCourageReplayResult result))completion;
 
 @end
