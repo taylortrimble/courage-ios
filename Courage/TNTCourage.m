@@ -93,7 +93,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 - (void)disconnectSocket:(GCDAsyncSocket *)sock;
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds;
 - (void)acknowledgeEvents:(NSArray *)eventIds;
-- (void)sendReplayResult:(TNTCourageReplayResult)result;
+- (void)reportReplayResult:(TNTCourageReplayResult)result;
 - (NSTimeInterval)nextReconnectInterval;
 - (void)resetReconnectInterval;
 
@@ -219,7 +219,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         });
     } else {
         // If we haven't returned a result already, report that the replay failed.
-        [self sendReplayResult:TNTCourageReplayResultFailed];
+        [self reportReplayResult:TNTCourageReplayResultFailed];
     }
 }
 
@@ -406,7 +406,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     // If anyone is interested in replay results, let them know we got new events when AckEvents
     // is written out.
     if (tag == TNTCourageWriteTagAckEvents) {
-        [self sendReplayResult:TNTCourageReplayResultNewEvents];
+        [self reportReplayResult:TNTCourageReplayResultNewEvents];
         
         // If this is a replay-only connection, we should also disconnect at this time.
         if (self.replayAndDisconnectOnly) {
@@ -434,7 +434,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             if ([self.eventsToAcknowledge count] > 0) {
                 [self acknowledgeEvents:self.eventsToAcknowledge];
             } else {
-                [self sendReplayResult:TNTCourageReplayResultNoEvents];
+                [self reportReplayResult:TNTCourageReplayResultNoEvents];
             }
             
             // If we're not just doing a replay and disconnect, queue up the next read.
@@ -579,7 +579,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageWriteTagAckEvents];
 }
 
-- (void)sendReplayResult:(TNTCourageReplayResult)result
+- (void)reportReplayResult:(TNTCourageReplayResult)result
 {
     if (self.completionBlock) {
         self.completionBlock(result);
