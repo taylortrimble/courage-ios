@@ -57,21 +57,22 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 @property (assign, nonatomic) UInt32 port;
 @property (strong, nonatomic) NSUUID *providerId;
 
-@property (strong, nonatomic) dispatch_queue_t delegateQueue;
-@property (strong, nonatomic) GCDAsyncSocket *socket;
-
 // Subscription info.
 @property (strong, nonatomic) NSMutableDictionary *subscribers; // Key: UUID string. Value: block that takes NSData.
 
 // State elements for processing input asynchronously. Frequently shared between
-// different message types.
+// different message types. Access to these variables is serialized on the delegateQueue.
+@property (assign, nonatomic) BOOL replayAndDisconnectOnly;
+@property (copy, nonatomic) void (^completionBlock)(TNTCourageReplayResult result);
 @property (assign, nonatomic) UInt8 remainingChannels;
 @property (strong, nonatomic) NSUUID *currentChannelId;
 @property (assign, nonatomic) UInt8 remainingEvents;
 @property (strong, nonatomic) NSUUID *currentEventId;
-@property (strong, nonatomic) NSMutableArray *eventsToAcknowledge; // Array of NSUUID *.
+@property (strong, nonatomic) NSMutableArray *eventsToAcknowledge;  // Array of NSUUID *.
 
-@property (assign, nonatomic) BOOL replayAndDisconnectOnly;
+// Nitty Gritty
+@property (strong, nonatomic) dispatch_queue_t delegateQueue;
+@property (strong, nonatomic) GCDAsyncSocket *socket;               // Access to socket is serialized on the delegateQueue.
 @property (assign, nonatomic) NSTimeInterval reconnectInterval;
 
 // Socket delegate methods.
@@ -80,6 +81,7 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port;
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)error;
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag;
+- (void)socket:(GCDAsyncSocket *)sock didWriteDataWithTag:(long)tag;
 
 // Socket delegate utility methods
 - (void)processNextSubscribeSuccessElementOnSocket:(GCDAsyncSocket *)sock;
@@ -88,10 +90,10 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 // Utility methods.
 - (void)commonConnect;
-- (void)reconnect;
 - (void)disconnectSocket:(GCDAsyncSocket *)sock;
 - (void)sendSubscribeRequestForChannels:(NSArray *)channelIds;
 - (void)acknowledgeEvents:(NSArray *)eventIds;
+- (void)reportReplayResult:(TNTCourageReplayResult)result;
 - (NSTimeInterval)nextReconnectInterval;
 - (void)resetReconnectInterval;
 
@@ -122,11 +124,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         _port = (UInt32)port;
         _providerId = [[NSUUID alloc] initWithUUIDString:parts[2]];
         
-        _delegateQueue = dispatch_get_main_queue();
-        
         _subscribers = [[NSMutableDictionary alloc] init];
-        _eventsToAcknowledge = [[NSMutableArray alloc] init];
         
+        _delegateQueue = dispatch_get_main_queue();
         _reconnectInterval = TNTCourageInitialReconnectInterval;
     }
     
@@ -217,6 +217,9 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
         dispatch_after(nextReconnectTime, self.delegateQueue, ^{
             [self.socket connectToHost:self.host onPort:self.port error:nil];
         });
+    } else {
+        // If we haven't returned a result already, report that the replay failed.
+        [self reportReplayResult:TNTCourageReplayResultFailed];
     }
 }
 
@@ -265,12 +268,14 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             }
         } break;
             
-        // If it's a channel count, cache it and start reading channel payloads.
+        // If it's a channel count, cache it and start reading channel payloads. Also
+        // reset processing variables.
         case TNTCourageReadTagSubscribeSuccessChannelCount: {
             UInt8 remainingChannels;
             [data getBytes:&remainingChannels length:sizeof(UInt8)];
             self.remainingChannels = remainingChannels;
             self.remainingEvents = 0;
+            self.eventsToAcknowledge = [[NSMutableArray alloc] init];
             
             [self processNextSubscribeSuccessElementOnSocket:sock];
         } break;
@@ -391,6 +396,25 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     }
 }
 
+- (void)socket:(GCDAsyncSocket *)sock didWriteDataWithTag:(long)tag
+{
+    // If this isn't the current socket, we don't care. Don't let if affect internal state.
+    if (sock != self.socket) {
+        return;
+    }
+    
+    // If anyone is interested in replay results, let them know we got new events when AckEvents
+    // is written out.
+    if (tag == TNTCourageWriteTagAckEvents) {
+        [self reportReplayResult:TNTCourageReplayResultNewEvents];
+        
+        // If this is a replay-only connection, we should also disconnect at this time.
+        if (self.replayAndDisconnectOnly) {
+            [self disconnectSocket:self.socket];
+        }
+    }
+}
+
 #pragma mark Socket Delegate Utilities
 
 - (void)processNextSubscribeSuccessElementOnSocket:(GCDAsyncSocket *)sock
@@ -405,13 +429,19 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
             [sock readDataToLength:sizeof(uuid_t) withTimeout:TNTCourageTimeoutNever
                                tag:TNTCourageReadTagSubscribeSuccessChannelId];
         } else {
-            // Once all channels are processed, acknowledge events.
-            [self acknowledgeEvents:self.eventsToAcknowledge];
-            
-            // Either disconnect once the replay is finished, or continue to the next message.
-            if (self.replayAndDisconnectOnly) {
-                [self disconnectSocket:sock];
+            // Once all channels are processed, acknowledge events. If we have a party interested
+            // in replay results, report that there were no events.
+            if ([self.eventsToAcknowledge count] > 0) {
+                [self acknowledgeEvents:self.eventsToAcknowledge];
             } else {
+                [self reportReplayResult:TNTCourageReplayResultNoEvents];
+            }
+            
+            // If we're not just doing a replay and disconnect, queue up the next read.
+            // If we are doing a replay and disconnect, the acknowledgeEvents: method above
+            // will result in a write callback, and will call the completion handler with
+            // the appropriate replay result.
+            if (!self.replayAndDisconnectOnly) {
                 [sock readDataToLength:sizeof(TNTCourageMessageHeader) withTimeout:TNTCourageTimeoutNever
                                    tag:TNTCourageReadTagMessageHeader];
             }
@@ -450,10 +480,11 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     });
 }
 
-- (void)replayAndDisconnect
+- (void)replayAndDisconnect:(void (^)(TNTCourageReplayResult result))completion
 {
     dispatch_async(self.delegateQueue, ^{
         self.replayAndDisconnectOnly = YES;
+        self.completionBlock = completion;
         [self commonConnect];
     });
 }
@@ -546,6 +577,14 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     
     // Send to server.
     [self.socket writeData:request withTimeout:TNTCourageTimeoutNever tag:TNTCourageWriteTagAckEvents];
+}
+
+- (void)reportReplayResult:(TNTCourageReplayResult)result
+{
+    if (self.completionBlock) {
+        self.completionBlock(result);
+        self.completionBlock = nil;
+    }
 }
 
 - (NSTimeInterval)nextReconnectInterval
