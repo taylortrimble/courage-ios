@@ -12,7 +12,6 @@
 #import "TNTPayloadWriter.h"
 
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
-#import <UIKit/UIKit.h>
 
 #pragma mark - Types
 
