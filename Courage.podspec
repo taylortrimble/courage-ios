@@ -36,14 +36,14 @@ Pod::Spec.new do |s|
                   This client library must be used with the Courage service.
                   DESC
 
-  s.authors = { 'Taylor Trimble' => 'taylor@taylortrimble.com' }
-  s.license = { :type => 'Apache', :file => 'LICENSE' }
+  s.authors = { 'Taylor Trimble' => 'taylor@thenewtricks.com' }
+  s.license = { :type => 'MIT', :file => 'LICENSE' }
 
   s.ios.deployment_target = '7.0'
   s.osx.deployment_target = '10.8'
   s.requires_arc          = true
 
-  s.source              = { :git => 'https://github.com/thenewtricks/courage-ios.git', :tag => s.version.to_s }
+  s.source              = { :git => 'https://github.com/thenewtricks/courage-ios.git', :tag => "v#{s.version.to_s}" }
   s.source_files        = 'Courage/*.{h,m}', 'Courage/Internal/*.{h,m}'
   s.public_header_files = 'Courage/*.h'
 
