@@ -51,11 +51,6 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 @interface TNTCourage () <NSStreamDelegate>
 
-// DSN information.
-@property (strong, nonatomic) NSString *host;
-@property (assign, nonatomic) UInt32 port;
-@property (strong, nonatomic) NSUUID *providerId;
-
 // Subscription info.
 @property (strong, nonatomic) NSMutableDictionary *subscribers; // Key: UUID string. Value: block that takes NSData.
 
@@ -102,26 +97,22 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
 
 #pragma mark - Initializers
 
-- (instancetype)initWithDSN:(NSString *)dsn
+- (instancetype)initWithHost:(NSString *)host port:(UInt32)port tlsEnabled:(BOOL)tlsEnabled
+                  providerId:(NSUUID *)providerId subscribeOptions:(TNTCourageSubscribeOptions)subscribeOptions
+                    deviceId:(NSUUID *)deviceId
 {
     self = [super init];
     if (self) {
-        // Format: `host:port/provider-id`
-        NSCharacterSet *separators = [NSCharacterSet characterSetWithCharactersInString:@":/"];
-        NSArray *parts = [dsn componentsSeparatedByCharactersInSet:separators];
-
-        if ([parts count] != 3) {
-            return nil;
-        }
-        
-        NSInteger port = [parts[1] integerValue];
         if (port > UINT32_MAX) {
             return nil;
         }
-
-        _host = parts[0];
-        _port = (UInt32)port;
-        _providerId = [[NSUUID alloc] initWithUUIDString:parts[2]];
+        
+        _host = host;
+        _port = port;
+        _tlsEnabled = tlsEnabled;
+        _providerId = providerId;
+        _subscribeOptions = subscribeOptions;
+        _deviceId = deviceId;
         
         _subscribers = [[NSMutableDictionary alloc] init];
         
@@ -183,6 +174,10 @@ const NSTimeInterval TNTCourageTimeoutNever = -1.0;
     // If this isn't the current socket, we don't care. Don't let if affect internal state.
     if (sock != self.socket) {
         return;
+    }
+    
+    if (self.tlsEnabled) {
+        [self.socket startTLS:@{ (__bridge NSString *)kCFStreamSSLPeerName: self.host }];
     }
     
     // Derive a list of channel UUIDs from their string representation.

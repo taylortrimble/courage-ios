@@ -20,12 +20,19 @@ typedef NS_ENUM(NSInteger, TNTCourageReplayResult) {
 
 @interface TNTCourage : NSObject
 
-- (instancetype)initWithDSN:(NSString *)dsn;
+- (instancetype)initWithHost:(NSString *)host port:(UInt32)port tlsEnabled:(BOOL)tlsEnabled
+                  providerId:(NSUUID *)providerId subscribeOptions:(TNTCourageSubscribeOptions)subscribeOptions
+                    deviceId:(NSUUID *)deviceId;
+
+@property (strong, readonly, nonatomic) NSString *host;
+@property (assign, readonly, nonatomic) UInt32 port;
+@property (assign, readonly, nonatomic) BOOL tlsEnabled;
+@property (strong, readonly, nonatomic) NSUUID *providerId;
+@property (strong, readonly, nonatomic) NSUUID *deviceId;
+@property (assign, readonly, nonatomic) TNTCourageSubscribeOptions subscribeOptions;
 
 @property (strong, nonatomic) NSString *publicKey;
 @property (strong, nonatomic) NSString *privateKey;
-@property (strong, nonatomic) NSUUID *deviceId;
-@property (assign, nonatomic) TNTCourageSubscribeOptions subscribeOptions;
 
 - (void)setPublicKey:(NSString *)publicKey privateKey:(NSString *)privateKey;
 
