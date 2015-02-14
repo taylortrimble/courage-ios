@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
 
   s.name     = 'Courage'
-  s.version  = '0.0.1'
+  s.version  = '0.1.0'
   s.summary  = 'An iOS client for the Courage realtime event service.'
   s.homepage = 'http://github.com/thenewtricks/courage-ios'
   
