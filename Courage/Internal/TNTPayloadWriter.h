@@ -6,7 +6,7 @@
 //  Copyright (c) 2014 The New Tricks. All rights reserved.
 //
 
-#import <Foundation/Foundation.h>
+@import Foundation;
 
 @interface TNTPayloadWriter : NSObject
 

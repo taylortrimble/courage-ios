@@ -6,6 +6,8 @@
 //  Copyright (c) 2014 The New Tricks. All rights reserved.
 //
 
+@import Foundation;
+
 typedef NS_OPTIONS(UInt8, TNTCourageSubscribeOptions) {
     TNTCourageSubscribeOptionDefault = 0,
     TNTCourageSubscribeOptionReplay = 1 << 0,

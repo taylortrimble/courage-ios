@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
 
   s.name     = 'Courage'
-  s.version  = '0.1.0'
+  s.version  = '0.1.1'
   s.summary  = 'An iOS client for the Courage realtime event service.'
   s.homepage = 'http://github.com/thenewtricks/courage-ios'
   
@@ -39,7 +39,7 @@ Pod::Spec.new do |s|
   s.authors = { 'Taylor Trimble' => 'taylor@thenewtricks.com' }
   s.license = { :type => 'MIT', :file => 'LICENSE' }
 
-  s.ios.deployment_target = '7.0'
+  s.ios.deployment_target = '8.0'
   s.osx.deployment_target = '10.8'
   s.requires_arc          = true
 
@@ -47,6 +47,6 @@ Pod::Spec.new do |s|
   s.source_files        = 'Courage/*.{h,m}', 'Courage/Internal/*.{h,m}'
   s.public_header_files = 'Courage/*.h'
 
-  s.dependency 'CocoaAsyncSocket', '~> 7.3'
+  s.dependency 'CocoaAsyncSocket', '7.4.1'
 
 end
